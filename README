@@ -1,0 +1,141 @@
+Timp necesar implementarii: 10 ore
+
+Structuri folosite:
+
+QuadtreeNode - din cerinta
+
+square - contine informatiile despre un patrat(o subzona din matricea de pixeli)
+        am folosit aceasta structura din simplul motiv de a reduce numarul de
+        parametri din functiile unde trebuia sa lucrez pe matrici.
+
+qnode - structura pentru realizarea arborelui cuaternar. pentru cei 4 descendenti
+        am folosit un vector de pointeri la un qnode. pe langa acest vector
+        in structura se mai stocheaza size(latura patratului corespunzator nodului)
+        si culoarea medie a acestui patrat.
+
+matricea de pixeli - nu este o matrice propriu-zisa ci un singur buffer de
+        uint8_t pe care l-am tratat ca pe o matrice. am ales sa nu creez o matrice
+        pentru simplitate la citirea si scrierea in fisier.
+
+Macro-uri:
+
+COLOR_AT - deoarece matricea mea este de fapt un buffer si nu am folosit o alta
+        structura pentru a reprezenta un pixel, am calculat ca pentru a extrage
+        o anumita culoare(type) de la un anumit pixel(linia x coloana y) din matrice
+        (buffer) trebuie sa folosesc aceasta formula din moment ce un pixel
+        este reprezentat pe 3 bytes
+
+        *(buffer + 3*x*(latimea_pozei) + 3*y+type)
+
+        si pentru a nu repeta aceasta formula pe parcursul codului am facut un Macro
+
+Enum-uri: 
+
+tree_children - deoarece descendentii din arbore au fost stocati sub forma
+        de vector, am ales sa asociez fiecarui indice din vector cate un nume
+        care sa corespunda cu fiecare sfert din patrat. ALL_CHILDREN are valoarea
+        4 pentru a fi folosit ca limita superioara la for-uri
+
+colors - folosind formula de mai sus pentru extragerea culorii se observa
+        ca type trebuie sa fie 0 pentru rosu, 1 pentru verde si 2 pentru albastru,
+        fiind practic un offset si pentru lizibilitate am asociat acestor numere
+        etichetele corespunzatoare.
+
+Functii:
+
+get_mean: calculeaza media pentru fiecare culoare
+    primeste ca parametri buffer-ul cu imaginea si o variabila de tip square
+    in care este retinuta zona pe care trebuie sa se calculeze media.
+    se parcurge zona si se calculeaza media aritmetica pentru fiecare canal si
+    este stocata intr-un vector alocat dinamic cu 3 elemente de tip uint8_t care este
+    apoi returnat.
+
+
+get_sim_score: calculeaza scorul de similaritate descris in cerinta
+    primeste ca parametri buffer-ul cu imaginea, o variabila de tip square
+    in care este retinuta zona pe care trebuie sa se calculeze scorul si un uint8_t*
+    care reprezinta vectorul de medii returnat de functia get_mean. Pentru lizibilitate
+    fiecare diferenta din formula este retinuta intr-o varibila diff si apoi
+    se adauga la suma patratul acestei valori. in cadrul acestei functii se 
+    elibereaza memoria pentru vectorul de medii.
+
+file_to_photo: parseaza continutul fisierului de input si extrage datele importante
+    din antetul fisierului se extrage dimensiunea, din moment ce este singura
+    informatie relevanta si apoi se aloca dinamic un buffer in care se citeste
+    matricea de pixeli care reprezinta imaginea efectiva. la final este returnat
+    acest buffer.
+
+new_node: creeaza un nod nou cu toate legaturile catre copii initializate cu NULL
+
+photo_to_tree: pe baza buffer-ului se realizeaza arborele cuaternar
+    aceasta functie este recursiva. Se primesc ca parametri un qnode**
+    care reprezinta un nod din arbore, buffer-ul cu imaginea, factorul de compresie
+    nr_nodes in care se va calcula numarul de noduri(pentru a nu fi nevoie de o 
+    parcurgere ulterioara) si sqr in care se retine zona din matrice aferenta nodului.
+    se initializeaza nodul nou, se calculeaza media pe zona curenta si se trec datele
+    in nodul nou, apoi se calculeaza scorul si daca acesta este mai mare decat
+    factorul se repeta acelasi procedeu pentru fiecare dintre copiii nodului curent
+    si zona lor respectiva.
+
+is_leaf: verifica daca un nod din arbore este frunza sau nu
+
+tree_to_arr: pe baza arborelui creeaza vectorul de QuadtreeNode-uri
+    aceasta functie este recursiva. se incepe de la indexul 0 din
+    vector si de la radacina arborelui. se trec datele din nodul
+    curent din arbore in elementul din vector si se incrementeaza lungimea.
+    daca nodul e frunza se incrementeaza numarul de frunze si toti indecsii
+    copiiilor nodului curent sunt -1. in caz contrar, copilul topleft va primi
+    indexul nodului curent+1 si se continua acest procedeu pentru subarborele
+    topleft. astfel se asigura ca elementele vor fi puse in ordine in vector.
+    cand s-a terminat parcurgerea acestui subarbore, in parametrul len se va afla
+    indexul imediat urmator ultimului element pus in vector. acest index este
+    atribuit elementului topright, iar acest procedeu se repeta pentru bottom_right
+    si bottom_left.
+
+free_tree: elibereaza memoria aferenta unui arbore(parcurgere in postordine)
+
+fast_sqrt: calculeaza radicalul unui numar de forma 2^2k
+
+arr_to_tree: pe baza vectorului de QuadtreeNode-uri se reconstruieste arborele
+    se trece informatia de la elementul din vector in nodul din arbore si 
+    se repeta recursiv acest lucru pentru fiecare dintre indecsii copiilor
+    elementului din vector.
+
+tree_to_photo: pe baza arborelui cuaternar se reconstruieste imaginea
+    se parcurge arborele in adancime iar atunci cand se intalneste o frunza
+    in zona aferenta acelui nod este trecuta in matricea de pixeli culoarea
+    medie stocata in nod.
+
+file_to_arr: se citeste din fisier vectorul de QuadtreeNode-uri si numarul de
+    noduri, respectiv frunze
+
+mirror_v si mirror_h: se parcurge in adancime in postordine arborele si se oglindeste
+    pe axa corespunzatoare.
+    pentru mirror_v se interschimba copiii topleft cu bottom_left si topright cu
+    bottom_right pentru fiecare nod din arbore iar pentru mirror_h e acelasi procedeu
+    cu topleft cu topright si bottom_left cu bottom_right.
+
+arr_to_file: se scrie in fisierul de output vectorul de QuadtreeNode-uri
+
+photo_to_file: se scrie in fisierul de output imaginea din buffer
+
+compress: realizeaza operatiile necesare pentru operatia de compresie
+    -se citeste din fisier in buffer
+    -se realizeaza din buffer arborele
+    -se realizeaza din arbore vectorul de QuadtreeNode-uri
+    -se scrie in fisier vectorul de QuadtreeNode-uri
+
+decompress: realizeaza operatiile necesare pentru operatia de decompresie
+    -se citeste din fisier vectorul
+    -se transforma din vector in arbore
+    -se reconstruieste din arbore imaginea
+    -se scrie imaginea in fisier
+
+mirror: realizeaza operatiile necesare pentru operatia de oglindire
+    -se citeste din fisier in buffer
+    -se realizeaza din buffer arborele
+    -se oglindeste arborele pe axa specificata
+    -se reconstruieste din arbore imaginea
+    -se scrie imaginea in fisier
+
+main: in functie de parametrii primiti, se apeleaza una dintre functiile de mai sus
